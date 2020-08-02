@@ -101,6 +101,27 @@ def main(argv):
 								</table>
 						'''.format(str(timedelta(seconds=displayOnLength)),str(timedelta(seconds=deviceOnLength)))
 
+	# App list
+
+	cursor.execute('''SELECT AppName, AppBundleId, AppBundleVersion, AppIs3rdParty
+						FROM PLApplicationAgent_EventNone_AllApps''')
+
+	all_rows = cursor.fetchall()
+	
+	appListBody = ''
+	for row in all_rows:
+		appListBody += '<tr><td>{0}</td><td>{1}</td><td>{2}</td></tr>\n'.format(row[0].encode('utf-8'), row[1], row[2])
+	
+	applistBreakdown = '''<table id="applistBreakDown" class="table table-striped table-condensed">
+								<thead>
+								<tr>
+									<td class="col-md-3">App Name</td>
+									<td>AppBundleId</td>
+									<td>AppBundleVersion</td>
+								</tr>
+								</thead>
+								<tbody>{appListBody}</tbody>
+							</table>'''.format(appListBody = appListBody)
 
 	# Per Process Timing
 
@@ -126,110 +147,6 @@ def main(argv):
 								</thead>
 								<tbody>{perProcessBreakdownBody}</tbody>
 							</table>'''.format(perProcessBreakdownBody = perProcessBreakdownBody)
-
-	# Energy Usage per process
-
-	whereClauseForEnergy = ''
-
-	if args.startDate:
-		whereClauseForEnergy += ' ({0} >= timestamp AND {0} <= (timestamp + timeInterval)) '.format(args.startDate.strftime('%s'))
-
-	if args.endDate:
-		if args.startDate:
-			whereClauseForEnergy += ' OR ({0} < timestamp AND (timestamp + timeInterval) <  {1}) OR '.format(args.startDate.strftime('%s'), args.endDate.strftime('%s'))
-		whereClauseForEnergy += ' ({0} >= timestamp AND {0} <= (timestamp + timeInterval)) '.format(args.endDate.strftime('%s'))
-
-	if len(whereClauseForEnergy):
-		whereClauseForEnergy = 'AND ({0})'.format(whereClauseForEnergy)
-
-
-	cursor.execute('''SELECT  BLMAppName As Bundle,
-					 	SUM(Airdrop) AS Airdrop, 
-					 	SUM(Airplay) AS Airplay, 
-						SUM(AirplayMirroring) AS AirplayMirroring,
-						SUM(BBCondition) AS BBCondition, 
-						SUM(BLMEnergy) AS BLMEnergy, 
-						SUM(BLMEnergyAccessory) AS BLMEnergyAccessory,
-						SUM(BLMEnergyAssertion) AS BLMEnergyAssertion,
-						SUM(BLMEnergyAudio) AS BLMEnergyAudio,
-						SUM(BLMEnergyBB) AS BLMEnergyBB,
-						SUM(BLMEnergyBluetooth) AS BLMEnergyBluetooth,
-						SUM(BLMEnergyCPU) AS BLMEnergyCPU,
-						SUM(BLMEnergyDisplay) AS BLMEnergyDisplay,
-						SUM(BLMEnergyGPS) AS BLMEnergyGPS,
-						SUM(BLMEnergyGPU) AS BLMEnergyGPU,	
-						SUM(BLMEnergyPA_accessories) AS BLMEnergyPA_accessories,
-						SUM(BLMEnergyPA_apsd) AS BLMEnergyPA_apsd,
-						SUM(BLMEnergyPA_assetsd) AS BLMEnergyPA_assetsd,
-						SUM(BLMEnergyPA_backboardd) AS BLMEnergyPA_backboardd,
-						SUM(BLMEnergyPA_cloudd) AS BLMEnergyPA_cloudd,
-						SUM(BLMEnergyPA_commcenter) AS BLMEnergyPA_commcenter,
-						SUM(BLMEnergyPA_discoverydBB) AS BLMEnergyPA_discoverydBB,
-						SUM(BLMEnergyPA_discoverydWifi) AS BLMEnergyPA_discoverydWifi,
-						SUM(BLMEnergyPA_kernel_task) AS BLMEnergyPA_kernel_task,
-						SUM(BLMEnergyPA_locationd) AS BLMEnergyPA_locationd, 
-						SUM(BLMEnergyPA_mediaserverd) AS BLMEnergyPA_mediaserverd,
-						SUM(BLMEnergyPA_notification_display) AS BLMEnergyPA_notification_display,
-						SUM(BLMEnergyPA_nsurlsessiond) AS BLMEnergyPA_nsurlsessiond,
-						SUM(BLMEnergyPA_syncdefaultd) AS BLMEnergyPA_syncdefaultd,
-						SUM(BLMEnergySOC) AS BLMEnergySOC,
-						SUM(BLMEnergyTorch) AS BLMEnergyTorch,
-						SUM(BLMEnergyWiFi) AS BLMEnergyWiFi,
-						SUM(BLMEnergyWiFiLocationScan) AS BLMEnergyWiFiLocationScan,
-						SUM(BLMEnergyWiFiPipelineScan) AS BLMEnergyWiFiPipelineScan,
-						SUM(BLMEnergy_BackgroundCPU) AS BLMEnergy_BackgroundCPU,
-						SUM(BLMEnergy_BackgroundLocation)  BLMEnergy_BackgroundLocation, 
-						SUM(background) AS  background
-						FROM PLBLMAccountingService_Aggregate_BLMAppEnergyBreakdown
-						WHERE timeInterval == 3600 
-						{whereClauseForEnergy}
-						GROUP BY Bundle
-						ORDER BY BLMEnergy DESC'''.format(whereClauseForEnergy=('', '{0}'.format(whereClauseForEnergy))[len(whereClauseForEnergy) > 0]))
-
-	all_rows = cursor.fetchall()
-	
-
-	perProcessEnergyBody = ''
-	for row in all_rows:
-		perProcessEnergyBody += '<tr>'
-		for column in row:
-			perProcessEnergyBody += '''<td>{0}</td>'''.format(column).replace('None', '0.0')
-		perProcessEnergyBody += '</tr>'
-
-	headingsBody = ''
-	for col in cursor.description:
-		headingsBody += '<td>{0}</td>\n'.format(col[0])
-
-	perProcesssEnergy = '''
-								<table id="energyBreakdown" class="table table-striped table-bordered display responsive">
-									<thead><tr>{headingsBody}</tr></thead>
-									<tbody>{perProcessEnergyBody}</tbody>
-								</table>
-
-							'''.format(headingsBody = headingsBody, perProcessEnergyBody = perProcessEnergyBody)
-
-	# Notifications
-
-	cursor.execute('''SELECT Topic, COUNT(Topic) 
-						AS Count FROM PLXPCAgent_EventPoint_Apsd  {whereClause} 
-						GROUP BY Topic
-						ORDER BY Count DESC'''.format(whereClause=('', 'WHERE {0}'.format(whereClause))[len(whereClause) > 0]))
-
-	all_rows = cursor.fetchall()
-
-	notificationsBody = ''
-	for row in all_rows:
-		notificationsBody += '<tr><td>{0}</td><td>{1}</td></tr>\n'.format(row[0], row[1])
-	
-	notificationsBreakdown = '''<table id="notificationBreakdown" class="table table-striped table-condensed">
-								<thead>
-									<tr>
-									<td class="col-md-3">Topic</td>
-									<td>Number of Notifications</td>
-									</tr>
-								</thead>
-								<tbody>{notificationsBody}</tbody>
-							</table>'''.format(notificationsBody = notificationsBody)
 
 
 	# Signal Bars
@@ -284,8 +201,56 @@ def main(argv):
 								<tbody>{locationBody}</tbody>
 							</table>'''.format(locationBody = locationBody)
 
-
+	#power consumption
+	cursor.execute('''SELECT Name, SUM(Energy) AS TotalEnergy 
+						FROM PLAccountingOperator_Aggregate_RootNodeEnergy, PLAccountingOperator_EventNone_Nodes 
+						WHERE PLAccountingOperator_Aggregate_RootNodeEnergy.NodeID = PLAccountingOperator_EventNone_Nodes.ID
+							 {whereClause}
+					 	GROUP BY Name 
+					 	ORDER BY TotalEnergy DESC'''.format(whereClause=('', 'AND {0}'.format(whereClause))[len(whereClause) > 0]))
+	all_rows = cursor.fetchall()
 	
+	perProcessPowerConsumption = ''
+	for row in all_rows:
+		perProcessPowerConsumption += '<tr><td>{0}</td><td>{1}</td></tr>\n'.format(row[0], row[1])
+	
+	powerBreakDown = '''<table id="powerBreakDown" class="table table-striped table-condensed">
+								<thead>
+								<tr>
+									<td class="col-md-3">Node Name</td>
+									<td>Power Usage</td>
+								</tr>
+								</thead>
+								<tbody>{perProcessPowerConsumption}</tbody>
+							</table>'''.format(perProcessPowerConsumption = perProcessPowerConsumption)
+
+	#memory usage
+	cursor.execute('''SELECT PLApplicationAgent_EventNone_AllApps.AppName, PLApplicationAgent_EventBackward_ApplicationMemory.AppBundleId, avg(PeakMemory) AS avgpeak 
+						FROM PLApplicationAgent_EventBackward_ApplicationMemory 
+						LEFT JOIN PLApplicationAgent_EventNone_AllApps 
+						ON PLApplicationAgent_EventBackward_ApplicationMemory.AppBundleId = PLApplicationAgent_EventNone_AllApps.AppBundleId 
+						{whereClause} 
+					 	GROUP BY PLApplicationAgent_EventBackward_ApplicationMemory.AppBundleId 
+					 	ORDER BY avgpeak DESC'''.format(whereClause=('', '{0}'.format(whereClause))[len(whereClause) > 0]))
+	all_rows = cursor.fetchall()
+	
+	perProcessMemPeaks = ''
+	for row in all_rows:
+		AppName = row[0] if row[0] else ''
+		perProcessMemPeaks += '<tr><td>{0}</td><td>{1}</td><td>{2}</td></tr>\n'.format(row[1], AppName.encode('utf-8'), row[2])
+	
+	memoryBreakDown = '''<table id="memoryBreakDown" class="table table-striped table-condensed">
+								<thead>
+								<tr>
+									<td class="col-md-3">AppBundleId</td>
+									<td>AppName</td>
+									<td>Peak Memory</td>
+								</tr>
+								</thead>
+								<tbody>{perProcessMemPeaks}</tbody>
+							</table>'''.format(perProcessMemPeaks = perProcessMemPeaks)
+
+
 	f = open('report.html', 'w')
 	report = '''<html>
 		<link rel="stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
@@ -297,10 +262,6 @@ def main(argv):
 
 		<script type="text/javascript" charset="utf-8">
 			$(document).ready(function() {{
-				 $('#energyBreakdown').DataTable( {{
-        			"responsive": true,
-        			"order": [[ 5, "desc" ]]
-    			}});
 				$('#processBreakdown').DataTable( {{
         			"responsive": true,
         			"order": [[ 1, "desc" ]]
@@ -311,7 +272,19 @@ def main(argv):
     			}});
 				$('#locationBreakdown').DataTable( {{
         			"responsive": true,
-        			"order": [[ 2, "desc" ]]
+        			"order": [[ 1, "desc" ]]
+    			}});
+				$('#powerBreakDown').DataTable( {{
+        			"responsive": true,
+        			"order": [[ 1, "desc" ]]
+    			}});
+				$('#memoryBreakDown').DataTable( {{
+        			"responsive": true,
+        			"order": [[ 1, "desc" ]]
+    			}});
+				$('#applistBreakdown').DataTable( {{
+        			"responsive": true,
+        			"order": [[ 1, "desc" ]]
     			}});
 			}});
 		</script>
@@ -323,30 +296,34 @@ def main(argv):
 			<h2>Overall Metrics</h2>
 			{overallBreakdown}
 
+			<h2>App list breakdown</h2>
+			{applistBreakdown}
+
 			<h2>Process time breakdown</h2>
 			{perProcesssBreakdown}
-
-			<h2>Energy Usage</h2>
-			{perProcesssEnergy}
-
-			<h2>Notifications</h2>
-			{notificationsBreakdown}
 
 			<h2>Core Location</h2>
 			{locationBreakdown}
 
 			<h2>Signal Breakdown</h2>
 			{signalBreakdown}
+
+			<h2>Power Breakdown</h2>
+			{powerBreakDown}
+
+			<h2>Memory Breakdown</h2>
+			{memoryBreakDown}
 			</div>
 		<body>
 	</html>'''.format(startDate = datetime.fromtimestamp(startTimeInData).strftime("%Y-%m-%d %H:%M"), 
 						endDate = datetime.fromtimestamp(endTimeInData).strftime("%Y-%m-%d %H:%M"), 
 						overallBreakdown = overallBreakdown,
 						perProcesssBreakdown = perProcesssBreakdown,
-						perProcesssEnergy = perProcesssEnergy,
-						notificationsBreakdown = notificationsBreakdown,
 						signalBreakdown=signalBreakdown,
-						locationBreakdown = locationBreakdown)
+						locationBreakdown = locationBreakdown,
+						powerBreakDown = powerBreakDown,
+						memoryBreakDown = memoryBreakDown,
+						applistBreakdown = applistBreakdown)
 	f.write(report)
 	f.close()
 

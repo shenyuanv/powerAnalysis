@@ -110,7 +110,7 @@ def main(argv):
 	
 	appListBody = ''
 	for row in all_rows:
-		appListBody += '<tr><td>{0}</td><td>{1}</td><td>{2}</td></tr>\n'.format(row[0].encode('utf-8'), row[1], row[2])
+		appListBody += '<tr><td>{0}</td><td>{1}</td><td>{2}</td></tr>\n'.format(row[0], row[1], row[2])
 	
 	applistBreakdown = '''<table id="applistBreakDown" class="table table-striped table-condensed">
 								<thead>
